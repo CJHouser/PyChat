@@ -2,13 +2,14 @@
 
 ## Required
 * Python 3.8.1
-* [Click](https://click.palletsprojects.com/en/7.x/)
 
 ## Usage
 ### Server
 Run the server from the command line
 
     ./chat-server.py <port>
+
+NOTE: use a port in range 49152-65535, inclusive.
     
 Use CTRL+C to terminate the server.
 
