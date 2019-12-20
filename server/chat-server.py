@@ -6,10 +6,6 @@ import threading
 import time
 import argparse
 
-parser = argparse.ArgumentParser(description='PyChat service.')
-parser.add_argument('port', type=int, nargs=1,
-                    help='port where chat service listens')
-
 isOnline = True
 clients = set()
 lock = threading.Lock()
@@ -107,6 +103,9 @@ def getData(conn):
             data += temp
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='PyChat service.')                
+    parser.add_argument('port', type=int, nargs=1,                                 
+                        help='port where chat service listens')
     args = parser.parse_args()
     port = args.port[0]
     service(port)
