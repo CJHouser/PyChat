@@ -23,6 +23,8 @@ def serveRequests(sock):
         try:
             acceptConnection(sock)
         except KeyboardInterrupt:
+            sock.close()
+            cleanupClients()
             break
 
 
@@ -52,9 +54,10 @@ def serveClient(connection, clientAddress):
         except OSError:
             debug('DEBUG  - server gone: {}'.format(clientAddress))
             break
-        decodedData = recvData.decode()[:-1]
-        if not decodedData:    # What a disgraceful little client socket...
+        decodedData = recvData.decode()[:-1]    # Ignore newline character
+        if not decodedData:     # What a disgraceful little client socket...
             packetType = 'null'
+            debug('DEBUG  - {} from {}'.format(packetType, clientAddress))
             break
         elif decodedData == 'message':
             packetType = 'message'
@@ -77,10 +80,8 @@ def cleanupClients():
 if __name__ == '__main__':
     debug = print
     parser = argparse.ArgumentParser(description='PyChat Service')
-    parser.add_argument('host', help='IPv4 address of host')
-    parser.add_argument('port', type=int, nargs=1, help='chat service port')
+    parser.add_argument('--host', dest='host', help='IPv4 address of host')
+    parser.add_argument('--port', dest='port', type=int, help='chat service port')
     args = parser.parse_args()
-    sock = makeSocket(args.host, args.port[0])
+    sock = makeSocket(args.host, args.port)
     serveRequests(sock)
-    sock.close()
-    cleanupClients()
