@@ -47,7 +47,7 @@ class Client(threading.Thread):
                 except OSError:
                     debug('DEBUG  - client gone: {}'.format(self.address))
                     break
-            except OSError:
+            except OSError: # can be client too
                 debug('DEBUG  - server gone: {}'.format(self.address))
                 break
             decodedData = recvData.decode()[:-1]    # Ignore newline character
@@ -89,7 +89,7 @@ def acceptConnection(sock):
     global clients
     clientConnection, clientAddress = sock.accept()
     debug('DEBUG  - new connection: {}'.format(clientAddress))
-    clientConnection.settimeout(30)
+    clientConnection.settimeout(300)
     client = Client(clientConnection, clientAddress)
     with lock:
         clients.add(client)
@@ -111,8 +111,8 @@ def cleanupClients():
 if __name__ == '__main__':
     debug = print
     parser = argparse.ArgumentParser(description='PyChat Service')
-    parser.add_argument('--host', dest='host', help='IPv4 address of host')
-    parser.add_argument('--port', dest='port', type=int, help='chat service port')
+    parser.add_argument('host', help='IPv4 address of host')
+    parser.add_argument('port', type=int, help='chat service port')
     args = parser.parse_args()
     sock = makeSocket(args.host, args.port)
     serveRequests(sock)
