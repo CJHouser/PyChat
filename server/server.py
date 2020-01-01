@@ -11,6 +11,63 @@ debug = lambda *args, **kw: None
 lock = threading.Lock()
 
 
+class Client(threading.Thread):
+    def __init__(self, connection, address):
+        threading.Thread.__init__(self)
+        self.name = 'anon'
+        self.connection = connection
+        self.address = address
+    
+    def getConnection(self):
+        return self.connection
+
+    def getName(self):
+        return self.name
+
+    def command(self, decodedData):
+        parsedCommand = decodedData.split(' ')
+        if parsedCommand[0] == '/whoisthere':
+            with lock:
+                for client in clients:
+                    name = client.getName() + '\n'
+                    self.connection.sendall(name.encode())
+        elif parsedCommand[0] =='/setname':
+            self.name = parsedCommand[1]
+        else:
+            self.connection.sendall('SERVER: Unrecognized command\n'.encode())
+   
+    def run(self):
+        while True:
+            try:
+                recvData = self.connection.recv(1024)
+            except socket.timeout:
+                try:
+                    self.connection.sendall(b'1')
+                    continue
+                except OSError:
+                    debug('DEBUG  - client gone: {}'.format(self.address))
+                    break
+            except OSError:
+                debug('DEBUG  - server gone: {}'.format(self.address))
+                break
+            decodedData = recvData.decode()[:-1]    # Ignore newline character
+            if not decodedData:     # What a disgraceful client socket
+                packetType = 'null'
+                debug('DEBUG  - {} from {}'.format(packetType, self.address))
+                break
+            elif decodedData[0] == '/':
+                self.command(decodedData)
+                packetType = 'command'
+            else:
+                namedMessage = '{}: {}\n'.format(self.name, decodedData).encode()
+                sendToAllClients(namedMessage)
+                packetType = 'message'
+            debug('DEBUG  - {} from {}'.format(packetType, self.address))
+        self.connection.close()
+        with lock:
+            clients.remove(self)
+
+
 def makeSocket(host, port):
     sock = socket.socket()
     sock.bind((host, port))
@@ -30,51 +87,25 @@ def serveRequests(sock):
 
 def acceptConnection(sock):
     global clients
-    connection, clientAddress = sock.accept()
+    clientConnection, clientAddress = sock.accept()
     debug('DEBUG  - new connection: {}'.format(clientAddress))
-    connection.settimeout(30)
-    clientThread = threading.Thread(target=serveClient,
-                                    args=(connection, clientAddress))
+    clientConnection.settimeout(30)
+    client = Client(clientConnection, clientAddress)
     with lock:
-        clients.add(connection)
-    clientThread.start()
+        clients.add(client)
+    client.start()
 
 
-def serveClient(connection, clientAddress):
-    while True:
-        try:
-            recvData = connection.recv(1024)
-        except socket.timeout:
-            try:
-                connection.sendall(b'1')
-                continue
-            except OSError:
-                debug('DEBUG  - client gone: {}'.format(clientAddress))
-                break
-        except OSError:
-            debug('DEBUG  - server gone: {}'.format(clientAddress))
-            break
-        decodedData = recvData.decode()[:-1]    # Ignore newline character
-        if not decodedData:     # What a disgraceful little client socket...
-            packetType = 'null'
-            debug('DEBUG  - {} from {}'.format(packetType, clientAddress))
-            break
-        elif decodedData == 'message':
-            packetType = 'message'
-        elif decodedData[0] == '/':
-            packetType = 'command'
-        else:
-            packetType = 'unrecognized'
-        debug('DEBUG  - {} from {}'.format(packetType, clientAddress))
-    connection.close()
+def sendToAllClients(data):
     with lock:
-        clients.remove(connection)
+        for client in clients:
+            client.getConnection().sendall(data)
 
 
 def cleanupClients():
     with lock:
         for client in clients:
-            client.close()
+            client.getConnection().close()
 
 
 if __name__ == '__main__':
