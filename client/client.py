@@ -4,10 +4,9 @@
 from argparse import ArgumentParser
 from curses import newpad, wrapper
 from math import ceil
-import select
+from select import select
 from socket import socket
-import sys
-from threading import Thread
+from sys import stdin
 
 
 def drawBorders(stdscr, y, x):
@@ -18,25 +17,6 @@ def drawBorders(stdscr, y, x):
         stdscr.addch(y - 5, i, '─')
     stdscr.addch(y - 5, x - 1, '┤')
     stdscr.refresh()
-
-
-def receive(sock, chatPad):
-    cursorY = 0
-    while True:
-        encodedRecv = sock.recv(1024)
-        decodedRecv = encodedRecv.decode('ascii')
-        y, x = chatPad.getmaxyx()
-        lineCount = int(ceil(len(decodedRecv) / x))
-        if cursorY + lineCount >= y:
-            chatPad.clear()
-            chatPad.refresh(0, 0, 1, 1, y, x)
-            cursorY = 0
-        for i in range(lineCount):
-            index = i * (x - 2)
-            line = decodedRecv[index:index + (x - 2)]
-            chatPad.addstr(cursorY, 0, line)
-            cursorY += 1
-        chatPad.refresh(0, 0, 1, 1, y, x)
 
 
 def main(stdscr):
@@ -54,9 +34,9 @@ def main(stdscr):
     chatPadCursorY = 0
     sendString = ''
 
-    rlist = [sock, sys.stdin]
+    rlist = [sock, stdin]
     while True:
-        readable, writable, erroneous = select.select(rlist, [], [])
+        readable, writable, erroneous = select(rlist, [], [])
         for fd in readable:
             if fd == sock:
                 decodedRecv = sock.recv(256).decode()
@@ -67,8 +47,8 @@ def main(stdscr):
                 chatPad.addstr(chatPadCursorY, 0, decodedRecv)
                 chatPadCursorY += rowCount
                 chatPad.refresh(0, 0, 1, 1, termy - 6, termx - 2)
-            elif fd == sys.stdin:
-                c = sys.stdin.read(1)
+            elif fd == stdin:
+                c = stdin.read(1)
                 if c == '\r':
                     sock.sendall(sendString.encode())
                     sendString = ''
