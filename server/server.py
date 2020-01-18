@@ -39,7 +39,7 @@ class Client(threading.Thread):
     def run(self):
         while True:
             try:
-                recvData = self.connection.recv(1024)
+                recvData = self.connection.recv(256)
             except socket.timeout:
                 try:
                     self.connection.sendall(b'1')
@@ -50,7 +50,7 @@ class Client(threading.Thread):
             except OSError: # can be client too
                 debug('DEBUG  - server gone: {}'.format(self.address))
                 break
-            decodedData = recvData.decode()[:-1]    # Ignore newline character
+            decodedData = recvData.decode().rstrip('\n')
             if not decodedData:     # What a disgraceful client socket
                 packetType = 'null'
                 debug('DEBUG  - {} from {}'.format(packetType, self.address))
