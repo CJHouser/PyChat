@@ -2,6 +2,7 @@
 
 
 from argparse import ArgumentParser
+from collections import deque
 from curses import newpad, wrapper
 from math import ceil
 from select import select
@@ -34,9 +35,11 @@ def main(stdscr):
     chatPadCursorY = 0
     sendString = ''
 
-    rlist = [sock, stdin]
+    inbound = [sock, stdin]
+    outbound = [sock]
+    messageQueue = deque()
     while True:
-        readable, writable, erroneous = select(rlist, [], [])
+        readable, writable, exceptional = select(inbound, outbound, [])
         for fd in readable:
             if fd == sock:
                 decodedRecv = sock.recv(256).decode()
@@ -50,7 +53,7 @@ def main(stdscr):
             elif fd == stdin:
                 c = stdin.read(1)
                 if c == '\r':
-                    sock.sendall(sendString.encode())
+                    messageQueue.append(sendString)
                     sendString = ''
                     textPad.clear()
                 elif c == '\x7f':
@@ -62,6 +65,9 @@ def main(stdscr):
                     sendString += c
                 textPad.addstr(0, 0, sendString)
                 textPad.refresh(0, 0, 20, 1, 23, 78)
+        for fd in writable:
+            if messageQueue:
+                fd.sendall(messageQueue.popleft().encode())
         
     
 if __name__ == '__main__':
