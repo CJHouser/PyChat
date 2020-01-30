@@ -43,5 +43,5 @@ List connected users (draws incorrectly client-side)
 ## TODO CLIENT
 * Scrolling message log
 * User list
-* Ratio scaled UI
+* ~~Ratio scaled UI~~
 * ~~Resizability~~

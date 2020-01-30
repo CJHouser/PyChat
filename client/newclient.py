@@ -3,7 +3,7 @@
 
 from argparse import ArgumentParser
 from curses import KEY_RESIZE, newpad, wrapper
-from math import ceil
+from math import floor, ceil
 from socket import socket
 
 
@@ -25,11 +25,9 @@ def main(stdscr):
     sock.sendall('/setname {}\n'.format(args.name).encode())
 
     terminalHeight, terminalWidth = stdscr.getmaxyx()
-    textPadHeight = 5
+    textPadHeight = floor((terminalHeight - 3) * .1)
 
-    drawBorders(stdscr, terminalHeight, terminalWidth, textPadHeight)
-
-    chatPadHeight = terminalHeight - textPadHeight - 3
+    chatPadHeight = ceil((terminalHeight - 3) * .9)
     chatPadWidth = terminalWidth - 2
     chatPad = newpad(chatPadHeight, chatPadWidth)
     chatPad.refresh(0, 0, 1, 1, chatPadHeight, chatPadWidth)
@@ -40,6 +38,8 @@ def main(stdscr):
     textPad.refresh(0, 0, terminalHeight - textPadHeight - 1, 1,
                     terminalHeight - 1, textPadWidth)
     
+    drawBorders(stdscr, terminalHeight, terminalWidth, textPadHeight)
+
     chatPadCursorY = 0
     sendString = ''
     decodedRecv = ''
@@ -52,18 +52,21 @@ def main(stdscr):
         if c:
             if c == 'KEY_RESIZE':
                 terminalHeight, terminalWidth = stdscr.getmaxyx()
-                drawBorders(stdscr, terminalHeight, terminalWidth, textPadHeight)
-                chatPadHeight = terminalHeight - textPadHeight - 3
+                textPadHeight = floor((terminalHeight - 3) * .1)
+                
+                chatPadHeight = ceil((terminalHeight - 3) * .9)
                 chatPadWidth = terminalWidth - 2
                 chatPad = newpad(chatPadHeight, chatPadWidth)
                 chatPad.refresh(0, 0, 1, 1, chatPadHeight, chatPadWidth)
-
+                
                 textPadWidth = terminalWidth - 2
                 textPad = newpad(textPadHeight, textPadWidth)
                 textPad.nodelay(1)
                 textPad.refresh(0, 0, terminalHeight - textPadHeight - 1, 1,
                                 terminalHeight - 1, textPadWidth)
-
+                
+                drawBorders(stdscr, terminalHeight, terminalWidth, textPadHeight)
+            
                 chatPadCursorY = 0
             elif c == '\n':
                 sock.send(sendString.encode())
@@ -87,14 +90,13 @@ def main(stdscr):
         except:
             pass
         if decodedRecv:
-            rowCount = int(ceil(len(decodedRecv) / 78))
+            rowCount = int(ceil(len(decodedRecv) / chatPadWidth))
             if rowCount + chatPadCursorY >= chatPadHeight:
                 chatPadCursorY = 0
                 chatPad.clear()
             chatPad.addstr(chatPadCursorY, 0, decodedRecv)
             chatPadCursorY += rowCount
-            chatPad.refresh(0, 0, 1, 1, terminalHeight - 6,
-                            terminalWidth - 2)
+            chatPad.refresh(0, 0, 1, 1, chatPadHeight, chatPadWidth)
             decodedRecv = ''
         
     
