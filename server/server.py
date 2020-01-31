@@ -39,7 +39,7 @@ class Client(threading.Thread):
     def run(self):
         while True:
             try:
-                recvData = self.connection.recv(256)
+                recvData = self.connection.recv(1024)
             except socket.timeout:
                 try:
                     self.connection.sendall(b'1')
