@@ -19,15 +19,20 @@ def service(host, port):
                 connection, address = listener.accept()
                 clients[connection] = 'anon'
                 incoming.append(connection)
-                for conn, un in clients.items():
-                    conn.send('SERVER: {} joined'.format(clients[connection]).encode())
             else:
                 data = fd.recv(1024).decode().rstrip('\n')
                 if data:
                     if data[0] == '/': # handle commands
                         parsedCommand = data.split(' ')
                         if parsedCommand[0] == '/setname':
+                            oldUsername = clients[fd]
                             clients[fd] = ' '.join(parsedCommand[1:])
+                            if oldUsername == 'anon':
+                                for conn, un in clients.items():
+                                    conn.send('SERVER: {} joined'.format(clients[fd]).encode())
+                            else:
+                                for conn, un in clients.items():
+                                    conn.send('SERVER: {} changed their name to {}'.format(oldUsername, clients[fd]).encode())
                         elif parsedCommand[0] == '/whoisthere':
                             for connection, username in clients.items():
                                 userList = '{} {}'.format(userList, username)
