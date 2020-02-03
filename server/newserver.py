@@ -20,16 +20,15 @@ def disconnect(fd):
 
 def handleCommand(fd, data):
     command = data.split(' ')
-    response = 'unrecognized command: {}'.format(command[0])
     if command[0] == '/setname':
         clients[fd] = ' '.join(command[1:])
-        response = 'named changed to {}'.format(clients[fd])
+        fd.send('named changed to {}'.format(clients[fd]).encode())
     elif command[0] == '/whoisthere':
-        response = ' '.join([client[1] for client in clients.items()])
+        fd.send(' '.join([client[1] for client in clients.items()]).encode())
     elif command[0] == '/quit':
         disconnect(fd)
-        response = ''
-    return response
+    else:
+        fd.send('unrecognized command: {}'.format(command[0]).encode())
 
 
 def broadcast(message):
@@ -48,9 +47,7 @@ def service():
             else:
                 data = fd.recv(1024).decode().rstrip('\n')
                 if data[0] == '/':
-                    response = handleCommand(fd, data)
-                    if response:
-                        fd.send(response.encode())
+                    handleCommand(fd, data)
                 else:
                     broadcast('{}: {}'.format(clients[fd], data))
         for fd in exceptional:
