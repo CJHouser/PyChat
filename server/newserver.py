@@ -5,13 +5,39 @@ from argparse import ArgumentParser
 from socket import socket
 from select import select
 
+listener = None
+incoming = []
+clients = dict()
 
-def service(host, port):
-    listener = socket()
-    listener.bind((host, port))
-    listener.listen(10)
-    clients = dict()
-    incoming = [listener]
+
+def disconnect(fd):
+    username = clients[fd]
+    incoming.remove(fd)
+    del clients[fd]
+    fd.close()
+    broadcast('{} left'.format(username))
+
+
+def handleCommand(fd, data):
+    command = data.split(' ')
+    response = 'unrecognized command: {}'.format(command[0])
+    if command[0] == '/setname':
+        clients[fd] = ' '.join(command[1:])
+        response = 'named changed to {}'.format(clients[fd])
+    elif command[0] == '/whoisthere':
+        response = ' '.join([client[1] for client in clients.items()])
+    elif command[0] == '/quit':
+        disconnect(fd)
+        response = ''
+    return response
+
+
+def broadcast(message):
+    for connection, _ in clients.items():
+        connection.send(message.encode())
+
+
+def service():
     while incoming:
         readable, writable, exceptional = select(incoming, [], incoming)
         for fd in readable:
@@ -21,43 +47,14 @@ def service(host, port):
                 incoming.append(connection)
             else:
                 data = fd.recv(1024).decode().rstrip('\n')
-                if data:
-                    if data[0] == '/': # handle commands
-                        parsedCommand = data.split(' ')
-                        if parsedCommand[0] == '/setname':
-                            oldUsername = clients[fd]
-                            clients[fd] = ' '.join(parsedCommand[1:])
-                            if oldUsername == 'anon':
-                                for conn, un in clients.items():
-                                    conn.send('SERVER: {} joined'.format(clients[fd]).encode())
-                            else:
-                                for conn, un in clients.items():
-                                    conn.send('SERVER: {} changed their name to {}'.format(oldUsername, clients[fd]).encode())
-                        elif parsedCommand[0] == '/whoisthere':
-                            for connection, username in clients.items():
-                                userList = '{} {}'.format(userList, username)
-                            fd.send('SERVER: {}'.format(userList).encode())
-                        else:
-                            fd.send('SERVER: unrecognized command'.encode())
-                    else: # chatroom broadcast
-                        username = clients[fd]
-                        message = '{}: {}'.format(username, data).encode()
-                        for connection, un in clients.items():
-                            connection.send(message)
-                else: # client side closed
-                    disconnUsername = clients[fd]
-                    incoming.remove(fd)
-                    del clients[fd]
-                    fd.close()
-                    for connection, un in clients.items():
-                        connection.send('SERVER: {} left'.format(disconnUsername).encode())
+                if data[0] == '/':
+                    response = handleCommand(fd, data)
+                    if response:
+                        fd.send(response.encode())
+                else:
+                    broadcast('{}: {}'.format(clients[fd], data))
         for fd in exceptional:
-            disconnUsername = clients[fd]
-            incoming.remove(fd)
-            del clients[fd]
-            fd.close()
-            for connection, un in clients.items():
-                connection.send('SERVER: {} left'.format(disconnUsername).encode())
+            disconnect(fd)
 
 
 if __name__ == '__main__':
@@ -65,4 +62,8 @@ if __name__ == '__main__':
     parser.add_argument('host', help='IPv4 address of host')
     parser.add_argument('port', type=int, help='chat service port')
     args = parser.parse_args()
-    service(args.host, args.port)
+    listener = socket()
+    listener.bind((args.host, args.port))
+    listener.listen(10)
+    incoming.append(listener)
+    service()
