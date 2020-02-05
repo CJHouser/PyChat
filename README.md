@@ -7,16 +7,16 @@
 ### Server
 Run the server from the command line
 
-    ./server.py <IPv4> <port>
+    ./newserver.py <IPv4> <port>
 
 Use CTRL+C to terminate the server.
 
 ### Client
 Run the client from the command line
 
-    ./client.py <IPv4> <port> <username>
+    ./newclient.py <IPv4> <port> <username>
 
-Use CTRL+C to terminate the client.
+Enter '/quit' in the textbox to close the client.
 
 ## User commands
 Change your username
