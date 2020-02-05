@@ -28,19 +28,19 @@ List connected users (draws incorrectly client-side)
     /whoisthere
 
 ## TODO SERVER
-* Avoid creating thread for each client
 * Server control (exit, restart, etc)
 * Explicitly write protocol grammar
 * Synchronized time stamps
 * Duplicate name checking
 * Passworded server
 * Message history
-* Private messaging?
+* ~~Avoid creating thread for each client~~
 * ~~Scrap old server-client protocol~~
 * ~~Clean up threads on shutdown~~
 * ~~Switch from Click to argparse~~
 
 ## TODO CLIENT
 * Scrolling message log
-* Resizablitiy
 * User list
+* ~~Ratio scaled UI~~
+* ~~Resizability~~
