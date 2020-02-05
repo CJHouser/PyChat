@@ -7,7 +7,7 @@ from select import select
 
 listener = None
 incoming = []
-clients = dict()
+clients = {}
 
 
 def disconnect(fd):
