@@ -2,12 +2,13 @@
 
 
 from argparse import ArgumentParser
-from socket import socket
+from socket import socket, MSG_PEEK
 from select import select
 
-listener = None
-incoming = []
+
 clients = {}
+incoming = []
+listener = None
 
 
 def disconnect(fd):
@@ -34,6 +35,29 @@ def handleCommand(fd, data):
 def broadcast(message):
     for connection, _ in clients.items():
         connection.send(message.encode())
+
+
+# need to decode the bytes and cast the bytes to int
+def bufferedService():
+    while incoming:
+        readable, writable, exceptional = select(incoming, [], incoming)
+        for fd in readable:
+            if fd == listener:
+                connection, address = listener.accept()
+                clients[connection] = 'anon'
+                incoming.append(connection)
+            else:
+                recvBuffer = fd.recv(256, MSG_PEEK)
+                print(recvBuffer)
+                if len(recvBuffer) > recvBuffer[0]:
+                    data = fd.recv(recvBuffer[0] + 1).decode()[1:]
+                    print(data)
+                    if data[0] == '/':
+                        handleCommand(fd, data)
+                    else:
+                        broadcast('{}: {}'.format(clients[fd], data))
+        for fd in exceptional:
+            disconnect(fd)
 
 
 def service():
@@ -63,4 +87,4 @@ if __name__ == '__main__':
     listener.bind((args.host, args.port))
     listener.listen(10)
     incoming.append(listener)
-    service()
+    bufferedService()

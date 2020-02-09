@@ -22,7 +22,8 @@ def main(stdscr):
     sock = socket()
     sock.connect((args.host, args.port))
     sock.setblocking(False)
-    sock.sendall('/setname {}\n'.format(args.name).encode())
+    sock.send(len('/setname {}'.format(args.name)).to_bytes(1, 'big'))
+    sock.send('/setname {}'.format(args.name).encode())
 
     terminalHeight, terminalWidth = stdscr.getmaxyx()
     textPadHeight = floor((terminalHeight - 3) * .1)
@@ -69,6 +70,7 @@ def main(stdscr):
             
                 chatPadCursorY = 0
             elif c == '\n':
+                sock.send(len(sendString).to_bytes(1, 'big'))
                 sock.send(sendString.encode())
                 if sendString == '/quit':
                     break
