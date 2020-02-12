@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 from curses import KEY_RESIZE, newpad, wrapper
+from datetime import datetime
 from math import floor, ceil
 from socket import socket
 
@@ -88,10 +89,12 @@ def main(stdscr):
                             terminalHeight - 1, textPadWidth)
             c = ''
         try:
-            decodedRecv = sock.recv(1024).decode()
+            recvd = sock.recv(1024)
         except:
             pass
-        if decodedRecv:
+        if recvd:
+            timestamp = datetime.utcfromtimestamp(int.from_bytes(recvd[0:4], 'big')).isoformat()
+            decodedRecv = '[{}] {}'.format(timestamp, recvd[4:].decode())
             rowCount = int(ceil(len(decodedRecv) / chatPadWidth))
             if rowCount + chatPadCursorY >= chatPadHeight:
                 chatPadCursorY = 0
@@ -99,6 +102,7 @@ def main(stdscr):
             chatPad.addstr(chatPadCursorY, 0, decodedRecv)
             chatPadCursorY += rowCount
             chatPad.refresh(0, 0, 1, 1, chatPadHeight, chatPadWidth)
+            recvd = ''
             decodedRecv = ''
         
     

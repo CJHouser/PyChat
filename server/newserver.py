@@ -4,6 +4,7 @@
 from argparse import ArgumentParser
 from socket import socket, MSG_PEEK
 from select import select
+from time import time
 
 
 clients = {}
@@ -20,27 +21,31 @@ def disconnect(fd):
 
 
 def handleCommand(fd, data):
+    timestamp = int(time()).to_bytes(4, 'big')
     command = data.split(' ')
     if command[0] == '/setname':
         clients[fd] = ' '.join(command[1:])
-        fd.send('named changed to {}'.format(clients[fd]).encode())
+        message = 'named changed to {}'.format(clients[fd])
     elif command[0] == '/whoisthere':
-        fd.send(' '.join([client[1] for client in clients.items()]).encode())
+        message = ' '.join([client[1] for client in clients.items()])
     elif command[0] == '/quit':
         disconnect(fd)
+        return
     else:
-        fd.send('unrecognized command: {}'.format(command[0]).encode())
-
+        message = 'unrecognized command: {}'.format(command[0])
+    fd.send(timestamp + message.encode())
 
 def broadcast(message):
+    timestamp = int(time()).to_bytes(4, 'big')
     for connection, _ in clients.items():
-        connection.send(message.encode())
+        connection.send(timestamp + message.encode())
 
 
-# need to decode the bytes and cast the bytes to int
 def bufferedService():
     while incoming:
         readable, writable, exceptional = select(incoming, [], incoming)
+        for fd in exceptional:
+            disconnect(fd)
         for fd in readable:
             if fd == listener:
                 connection, address = listener.accept()
@@ -48,16 +53,14 @@ def bufferedService():
                 incoming.append(connection)
             else:
                 recvBuffer = fd.recv(256, MSG_PEEK)
-                print(recvBuffer)
-                if len(recvBuffer) > recvBuffer[0]:
+                if not recvBuffer:
+                    disconnect(fd)
+                elif len(recvBuffer) > recvBuffer[0]:
                     data = fd.recv(recvBuffer[0] + 1).decode()[1:]
-                    print(data)
                     if data[0] == '/':
                         handleCommand(fd, data)
                     else:
                         broadcast('{}: {}'.format(clients[fd], data))
-        for fd in exceptional:
-            disconnect(fd)
 
 
 def service():
