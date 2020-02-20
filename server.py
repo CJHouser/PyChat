@@ -2,7 +2,7 @@
 
 
 from argparse import ArgumentParser
-from socket import socket, MSG_PEEK
+from socket import MSG_PEEK, socket
 from select import select
 from time import time
 
@@ -21,7 +21,6 @@ def disconnect(fd):
 
 
 def handleCommand(fd, data):
-    timestamp = int(time()).to_bytes(4, 'big')
     command = data.split(' ')
     if command[0] == '/setname':
         clients[fd] = ' '.join(command[1:])
@@ -33,15 +32,21 @@ def handleCommand(fd, data):
         return
     else:
         message = 'unrecognized command: {}'.format(command[0])
-    fd.send(timestamp + message.encode())
+    fd.send(appendTimestamp(message))
+
+
+def appendTimestamp(message):
+    timestamp = int(time()).to_bytes(4, 'big')
+    return timestamp + message.encode()
+
 
 def broadcast(message):
-    timestamp = int(time()).to_bytes(4, 'big')
+    stampedMessage = appendTimestamp(message)
     for connection, _ in clients.items():
-        connection.send(timestamp + message.encode())
+        connection.send(stampedMessage)
 
 
-def bufferedService():
+def service():
     while incoming:
         readable, writable, exceptional = select(incoming, [], incoming)
         for fd in exceptional:
@@ -53,6 +58,9 @@ def bufferedService():
                 incoming.append(connection)
             else:
                 recvBuffer = fd.recv(256, MSG_PEEK)
+                # frame size (first byte) should be sanitized
+                # 0 < frame_size < 256
+                # need some way to not wait forever if client only sends message size
                 if not recvBuffer:
                     disconnect(fd)
                 elif len(recvBuffer) > recvBuffer[0]:
@@ -61,24 +69,6 @@ def bufferedService():
                         handleCommand(fd, data)
                     else:
                         broadcast('{}: {}'.format(clients[fd], data))
-
-
-def service():
-    while incoming:
-        readable, writable, exceptional = select(incoming, [], incoming)
-        for fd in readable:
-            if fd == listener:
-                connection, address = listener.accept()
-                clients[connection] = 'anon'
-                incoming.append(connection)
-            else:
-                data = fd.recv(1024).decode().rstrip('\n')
-                if data[0] == '/':
-                    handleCommand(fd, data)
-                else:
-                    broadcast('{}: {}'.format(clients[fd], data))
-        for fd in exceptional:
-            disconnect(fd)
 
 
 if __name__ == '__main__':
@@ -90,4 +80,4 @@ if __name__ == '__main__':
     listener.bind((args.host, args.port))
     listener.listen(10)
     incoming.append(listener)
-    bufferedService()
+    service()
