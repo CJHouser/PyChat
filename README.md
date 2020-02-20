@@ -39,10 +39,3 @@ Leave the chatroom
 * ~~Clean up threads on shutdown~~
 * ~~Switch from Click to argparse~~
 * ~~Synchronized timestamps~~
-
-## TODO CLIENT
-* Eventually move to web UI?
-* Scrolling message log
-* User list
-* ~~Ratio scaled UI~~
-* ~~Resizability~~
