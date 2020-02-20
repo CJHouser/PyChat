@@ -2,12 +2,14 @@
 
 
 from argparse import ArgumentParser
-from socket import socket
+from socket import MSG_PEEK, socket
 from select import select
+from time import time
 
-listener = None
-incoming = []
+
 clients = {}
+incoming = []
+listener = None
 
 
 def disconnect(fd):
@@ -22,36 +24,51 @@ def handleCommand(fd, data):
     command = data.split(' ')
     if command[0] == '/setname':
         clients[fd] = ' '.join(command[1:])
-        fd.send('named changed to {}'.format(clients[fd]).encode())
+        message = 'named changed to {}'.format(clients[fd])
     elif command[0] == '/whoisthere':
-        fd.send(' '.join([client[1] for client in clients.items()]).encode())
+        message = ' '.join([client[1] for client in clients.items()])
     elif command[0] == '/quit':
         disconnect(fd)
+        return
     else:
-        fd.send('unrecognized command: {}'.format(command[0]).encode())
+        message = 'unrecognized command: {}'.format(command[0])
+    fd.send(appendTimestamp(message))
+
+
+def appendTimestamp(message):
+    timestamp = int(time()).to_bytes(4, 'big')
+    return timestamp + message.encode()
 
 
 def broadcast(message):
+    stampedMessage = appendTimestamp(message)
     for connection, _ in clients.items():
-        connection.send(message.encode())
+        connection.send(stampedMessage)
 
 
 def service():
     while incoming:
         readable, writable, exceptional = select(incoming, [], incoming)
+        for fd in exceptional:
+            disconnect(fd)
         for fd in readable:
             if fd == listener:
                 connection, address = listener.accept()
                 clients[connection] = 'anon'
                 incoming.append(connection)
             else:
-                data = fd.recv(1024).decode().rstrip('\n')
-                if data[0] == '/':
-                    handleCommand(fd, data)
-                else:
-                    broadcast('{}: {}'.format(clients[fd], data))
-        for fd in exceptional:
-            disconnect(fd)
+                recvBuffer = fd.recv(256, MSG_PEEK)
+                # frame size (first byte) should be sanitized
+                # 0 < frame_size < 256
+                # need some way to not wait forever if client only sends message size
+                if not recvBuffer:
+                    disconnect(fd)
+                elif len(recvBuffer) > recvBuffer[0]:
+                    data = fd.recv(recvBuffer[0] + 1).decode()[1:]
+                    if data[0] == '/':
+                        handleCommand(fd, data)
+                    else:
+                        broadcast('{}: {}'.format(clients[fd], data))
 
 
 if __name__ == '__main__':
